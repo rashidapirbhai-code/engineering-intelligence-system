@@ -16,7 +16,7 @@ export const solveEngineeringProblem = async (
     ? "IMPORTANT: You MUST provide all technical descriptions, steps, analysis, and verdicts in SWAHILI (Kiswahili). Technical terms can remain in English in parentheses if necessary for clarity (e.g., 'mzunguko wa umeme (circuit)')."
     : "Respond in English.";
 
-  const systemInstruction = `You are the Burhani Power Project Controller. 
+  const systemInstruction = `You are the OmniENG53 Project Controller. 
   Your goal is to solve complex engineering problems while managing project constraints with 100% accuracy.
   
   ${languageInstruction}

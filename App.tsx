@@ -25,27 +25,54 @@ import {
   Languages,
   ShoppingCart,
   ListOrdered,
-  PackagePlus
+  PackagePlus,
+  ArrowRight,
+  FileText,
+  Activity
 } from 'lucide-react';
 import { EngineeringField, ProblemSolution } from './types';
 import { solveEngineeringProblem, extractBOM } from './services/geminiService';
 import AnalysisChart from './components/AnalysisChart';
 
 const FIELD_ICONS = {
-  [EngineeringField.MECHANICAL]: <Wrench className="w-5 h-5" />,
-  [EngineeringField.ELECTRICAL]: <Cpu className="w-5 h-5" />,
-  [EngineeringField.CIVIL]: <Building className="w-5 h-5" />,
-  [EngineeringField.CHEMICAL]: <FlaskConical className="w-5 h-5" />
+  [EngineeringField.MECHANICAL]: <Wrench className="w-4 h-4" />,
+  [EngineeringField.ELECTRICAL]: <Cpu className="w-4 h-4" />,
+  [EngineeringField.CIVIL]: <Building className="w-4 h-4" />,
+  [EngineeringField.CHEMICAL]: <FlaskConical className="w-4 h-4" />
 };
 
 // Helper to determine if a safety check string represents a real issue
 const isSafetyCritical = (text?: string) => {
   if (!text) return false;
-  const lower = text.toLowerCase().trim().replace(/[.,]/g, ''); // Remove punctuation
-  // Filter out common "no issue" responses
-  if (['none', 'na', 'n/a', 'null', 'safe', 'no safety issues', 'no safety hazards'].includes(lower)) return false;
-  // If it's very short, it's likely not a real protocol
-  if (lower.length < 3) return false;
+  const lower = text.toLowerCase().trim();
+  
+  // Immediate dismissal of common non-risk indicators
+  if (['none', 'n/a', 'na', 'null', 'nil', '-', '.'].includes(lower)) return false;
+
+  // Remove punctuation for phrase matching
+  const cleanText = lower.replace(/[.,\-:;]/g, '');
+  
+  // List of phrases indicating no specific risk
+  const noRiskPhrases = [
+    'no safety issues', 
+    'no safety hazards', 
+    'no hazards detected',
+    'no specific safety protocols',
+    'none required',
+    'not applicable',
+    'safe to proceed',
+    'standard precautions', 
+    'standard safety protocols apply'
+  ];
+
+  if (noRiskPhrases.some(phrase => cleanText.includes(phrase.replace(/[.,\-:;]/g, '')))) return false;
+
+  // Check if it starts with negative confirmation
+  if (lower.startsWith('no safety') || lower.startsWith('none')) return false;
+
+  // If text is very short (e.g. "Safe"), assume no protocol needed
+  if (cleanText.length < 5) return false;
+
   return true;
 };
 
@@ -129,528 +156,462 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden text-zinc-200">
-      {/* Header */}
-      <header className="flex items-center justify-between px-8 py-3 bg-zinc-900/95 backdrop-blur-md border-b border-zinc-800 z-10 shadow-xl">
-        <div className="flex items-center gap-4">
-          <div className="relative h-12 w-12 bg-white rounded-lg p-0.5 overflow-hidden shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-            <img 
+    <div className="flex flex-col h-screen overflow-hidden text-slate-200">
+      {/* Professional Header */}
+      <header className="flex items-center justify-between px-6 py-3 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-white rounded p-1">
+             <img 
               src="https://media.licdn.com/dms/image/v2/C4E0BAQE_VjR_vLzF_Q/company-logo_200_200/company-logo_200_200/0/1630646270420?e=2147483647&v=beta&t=7u7u0-6E1r_X_Y2N_p1_Y_vL_W_f_l_u_p_p_u_m_m_m" 
-              alt="Burhani Power Logo" 
-              className="h-full w-full object-contain"
+              alt="OmniENG53 Logo" 
+              className="h-8 w-8 object-contain"
             />
           </div>
-          <div>
-            <h1 className="text-xl font-black tracking-tight text-white uppercase italic leading-none">
-              Burhani <span className="text-emerald-500">Power</span>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-bold tracking-tight text-white leading-none">
+              OmniENG53
             </h1>
-            <p className="text-[10px] text-zinc-400 font-mono tracking-widest uppercase mt-0.5">
-              Project Operations Controller
-            </p>
+            <span className="text-[10px] text-slate-400 font-medium tracking-wide uppercase">
+              Operations Intelligence
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          <nav className="flex items-center gap-1 bg-zinc-800/40 p-1 rounded-full border border-zinc-700/50">
-            <button 
-              onClick={() => setActiveTab('solver')}
-              className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'solver' ? 'bg-emerald-600 text-white shadow-lg' : 'text-zinc-400 hover:text-zinc-200'}`}
-            >
-              {language === 'en' ? 'Ops Console' : 'Console ya Operesheni'}
-            </button>
-            <button 
-              onClick={() => setActiveTab('history')}
-              className={`px-5 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${activeTab === 'history' ? 'bg-emerald-600 text-white shadow-lg' : 'text-zinc-400 hover:text-zinc-200'}`}
-            >
-              {language === 'en' ? 'Work Log' : 'Rekodi za Kazi'}
-            </button>
-          </nav>
-
+        <div className="flex items-center bg-slate-800/50 p-1 rounded-lg border border-slate-700/50">
           <button 
-            onClick={toggleLanguage}
-            className="flex items-center gap-2 px-4 py-2 bg-zinc-800/60 border border-zinc-700 rounded-full text-xs font-bold uppercase tracking-widest hover:bg-emerald-600/20 hover:border-emerald-500/50 transition-all text-emerald-400"
+            onClick={() => setActiveTab('solver')}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === 'solver' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            <Languages size={14} />
-            {language === 'en' ? 'Translate to Swahili' : 'Tafsiri kwa Kiingereza'}
+            {language === 'en' ? 'Diagnostic Console' : 'Jopo la Utambuzi'}
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${activeTab === 'history' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            {language === 'en' ? 'Intervention Log' : 'Kumbukumbu'}
           </button>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="hidden md:flex flex-col items-end gap-0.5 mr-2">
-            <span className="text-[10px] font-mono text-emerald-500 uppercase font-bold animate-pulse">Controller Online</span>
-            <span className="text-[9px] font-mono text-zinc-500 uppercase tracking-tighter">Ops Center Secure</span>
-          </div>
-          <div className="h-8 w-px bg-zinc-800"></div>
-          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-900/20 border border-emerald-500/30">
-            <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]"></div>
+          <button 
+            onClick={toggleLanguage}
+            className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white transition-colors"
+          >
+            <Languages size={14} />
+            <span className="uppercase">{language}</span>
+          </button>
+          
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${isSolving ? 'bg-amber-400 animate-pulse' : 'bg-emerald-500'}`}></div>
+            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+              {isSolving ? 'Processing' : 'System Ready'}
+            </span>
           </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 py-8 md:px-12 bg-[#09090b]">
-        {activeTab === 'solver' ? (
-          <div className="max-w-6xl mx-auto space-y-8 pb-12">
-            {/* Input Section */}
-            <section className="bg-zinc-900/60 rounded-3xl border border-zinc-800 p-6 md:p-8 shadow-2xl relative overflow-hidden backdrop-blur-sm">
-              <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                <Maximize2 size={120} className="text-emerald-500" />
-              </div>
+      <main className="flex-1 overflow-y-auto bg-transparent">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          
+          {activeTab === 'solver' ? (
+            <div className="space-y-8 pb-12">
               
-              <div className="flex flex-col gap-6">
-                <div className="flex flex-wrap items-center gap-3">
-                  {Object.values(EngineeringField).map((field) => (
-                    <button
-                      key={field}
-                      onClick={() => setSelectedField(field)}
-                      className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium border transition-all ${
-                        selectedField === field 
-                        ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
-                        : 'bg-zinc-800/40 border-zinc-700 text-zinc-400 hover:border-zinc-500'
-                      }`}
-                    >
-                      {FIELD_ICONS[field]}
-                      {field}
-                    </button>
-                  ))}
-                </div>
-
-                <form onSubmit={handleSolve} className="space-y-4">
-                  <div className="relative group">
-                    <textarea
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={language === 'en' ? "Report technical issue or maintenance request. Include specific assets and failure modes..." : "Ripoti tatizo la kiufundi au ombi la matengenezo. Jumuisha rasilimali maalum na hali za hitilafu..."}
-                      className="w-full h-40 bg-zinc-950/80 border border-zinc-800 rounded-2xl p-6 text-zinc-100 placeholder-zinc-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all resize-none font-mono text-sm leading-relaxed"
-                    />
-                    <div className="absolute bottom-4 right-4 flex items-center gap-3">
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        className="hidden" 
-                        accept="image/*"
-                        onChange={handleImageUpload}
-                      />
-                      {imagePreview && (
-                        <div className="relative group/img">
-                          <img src={imagePreview} className="h-10 w-10 object-cover rounded-lg border border-zinc-700" alt="Preview" />
-                          <button 
-                            type="button"
-                            onClick={() => setImagePreview(null)}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white p-0.5 rounded-full opacity-0 group-hover/img:opacity-100 transition-opacity"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-2.5 rounded-xl bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white transition-all border border-zinc-700 shadow-sm"
-                        title="Upload WO attachment or site photo"
-                      >
-                        <ImageIcon size={20} />
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isSolving || !query.trim()}
-                        className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-xl font-semibold shadow-lg shadow-emerald-900/30 transition-all uppercase tracking-tighter"
-                      >
-                        {isSolving ? (
-                          <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            {language === 'en' ? 'Processing...' : 'Inachakata...'}
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-4 h-4" />
-                            {language === 'en' ? 'Request Fix' : 'Omba Marekebisho'}
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </form>
-              </div>
-            </section>
-
-            {/* Error Message */}
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 text-red-400">
-                <X className="w-5 h-5" />
-                <span className="text-sm font-medium">{error}</span>
-              </div>
-            )}
-
-            {/* Loading Indicator */}
-            {isSolving && (
-              <div className="flex flex-col items-center justify-center py-20 animate-in fade-in zoom-in duration-500">
-                <div className="w-20 h-20 relative flex items-center justify-center mb-8">
-                   <div className="absolute inset-0 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
-                   <img 
-                    src="https://media.licdn.com/dms/image/v2/C4E0BAQE_VjR_vLzF_Q/company-logo_200_200/company-logo_200_200/0/1630646270420?e=2147483647&v=beta&t=7u7u0-6E1r_X_Y2N_p1_Y_vL_W_f_l_u_p_p_u_m_m_m" 
-                    alt="Logo" 
-                    className="w-10 h-10 object-contain grayscale opacity-50"
-                  />
-                </div>
-                <h3 className="text-xl font-bold text-zinc-200 mb-2 font-mono uppercase tracking-widest italic text-center">
-                  {language === 'en' ? 'Controller analyzing project parameters' : 'Kidhibiti kinachambua vigezo vya mradi'}
-                </h3>
-                <p className="text-zinc-400 text-sm max-w-md text-center font-mono uppercase text-[10px]">
-                  {language === 'en' ? 'Verifying engineering fix, estimating budget, and drafting follow-up schedules...' : 'Kuhakiki marekebisho ya kiufundi, kukadiria bajeti, na kuandaa ratiba za ufuatiliaji...'}
-                </p>
-              </div>
-            )}
-
-            {/* Result Section */}
-            {solution && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in slide-in-from-bottom-10 duration-700">
-                {/* Main Solution Column */}
-                <div className="lg:col-span-2 space-y-6">
-                  {isSafetyCritical(solution.safetyCheck) && (
-                    <div className="bg-red-600/10 border border-red-500/50 p-6 rounded-3xl flex items-start gap-4 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.15)] animate-pulse">
-                      <ShieldAlert className="w-8 h-8 shrink-0 mt-1" />
-                      <div>
-                        <h3 className="font-bold text-lg mb-1 uppercase tracking-tighter">{language === 'en' ? 'Safety Protocol Required' : 'Itifaki ya Usalama Inahitajika'}</h3>
-                        <p className="text-sm font-mono leading-relaxed">{solution.safetyCheck}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-8 backdrop-blur-sm shadow-2xl">
-                    <div className="flex items-center justify-between mb-8 border-b border-zinc-800 pb-6">
-                      <div className="flex items-center gap-3">
-                        <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                        <h2 className="text-2xl font-bold text-white uppercase tracking-tighter italic">{language === 'en' ? 'Engineering Fix' : 'Marekebisho ya Kiufundi'}</h2>
-                      </div>
-                      <div className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5 rounded-full border border-zinc-700">
-                        <span className="text-xs font-mono text-zinc-400 uppercase tracking-tighter text-[9px]">{language === 'en' ? 'Fix Integrity:' : 'Uadilifu wa Marekebisho:'}</span>
-                        <span className="text-xs font-mono font-bold text-emerald-400">{(solution.confidence * 100).toFixed(1)}%</span>
-                      </div>
+              {/* Professional Input Form */}
+              <section className="glass-panel rounded-xl p-1 shadow-lg">
+                <div className="bg-slate-900/50 rounded-lg p-6">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    
+                    {/* Field Selector - Vertical on Desktop */}
+                    <div className="flex md:flex-col gap-2 min-w-[140px]">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 px-1">Discipline</label>
+                      {Object.values(EngineeringField).map((field) => (
+                        <button
+                          key={field}
+                          onClick={() => setSelectedField(field)}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-medium border transition-all text-left ${
+                            selectedField === field 
+                            ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400' 
+                            : 'bg-transparent border-transparent text-slate-400 hover:bg-slate-800'
+                          }`}
+                        >
+                          {FIELD_ICONS[field]}
+                          {field}
+                        </button>
+                      ))}
                     </div>
 
-                    <div className="prose prose-invert max-w-none">
-                      <div className="mb-8">
-                        <h4 className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-3">{language === 'en' ? 'Analysis Summary' : 'Muhtasari wa Uchambuzi'}</h4>
-                        <p className="text-zinc-300 leading-relaxed italic border-l-2 border-emerald-500 pl-4 bg-emerald-950/5 py-3">
-                          {solution.analysis}
-                        </p>
-                      </div>
-
-                      {solution.diagnosticTree && solution.diagnosticTree.length > 0 && (
-                        <div className="mb-8 bg-zinc-950/60 rounded-2xl p-6 border border-zinc-800 shadow-inner">
-                          <h4 className="text-emerald-400 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                            <Stethoscope size={14} />
-                            {language === 'en' ? 'Controller Diagnostics' : 'Utambuzi wa Kidhibiti'}
-                          </h4>
-                          <div className="space-y-4">
-                            {solution.diagnosticTree.map((node, i) => (
-                              <div key={i} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800">
-                                  <span className="text-[10px] text-zinc-500 uppercase font-bold block mb-1 tracking-tighter">{language === 'en' ? 'Root Cause Hypothesis' : 'Dhana ya Sababu ya Msingi'}</span>
-                                  <p className="text-xs text-zinc-300">{node.hypothesis}</p>
-                                </div>
-                                <div className="p-3 rounded-xl bg-emerald-900/10 border border-emerald-900/30">
-                                  <span className="text-[10px] text-emerald-500 uppercase font-bold block mb-1 tracking-tighter">{language === 'en' ? 'Field Verification Test' : 'Jaribio la Uhakiki wa Nyanjani'}</span>
-                                  <p className="text-xs text-zinc-200">{node.test}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+                    {/* Main Input Area */}
+                    <div className="flex-1 space-y-4">
+                      <form onSubmit={handleSolve} className="flex flex-col h-full">
+                         <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Technical Description</label>
+                         <div className="relative flex-1">
+                          <textarea
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder={language === 'en' 
+                              ? "Describe the technical fault, asset ID, and observed symptoms..." 
+                              : "Elezea hitilafu ya kiufundi, kitambulisho cha rasilimali, na dalili zilizoonekana..."}
+                            className="w-full min-h-[120px] bg-slate-950 border border-slate-700 rounded-lg p-4 text-slate-200 text-sm placeholder-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-sans resize-y"
+                          />
+                          
+                          {/* Attachments Preview */}
+                          {imagePreview && (
+                            <div className="absolute bottom-3 left-3 flex items-center gap-2 bg-slate-900 pr-2 rounded-md border border-slate-700">
+                               <img src={imagePreview} className="h-8 w-8 object-cover rounded-l-md" alt="Preview" />
+                               <span className="text-[10px] text-slate-400">Attached</span>
+                               <button 
+                                type="button"
+                                onClick={() => setImagePreview(null)}
+                                className="text-slate-500 hover:text-red-400"
+                              >
+                                <X size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      )}
 
-                      {solution.steps.length > 0 && (
-                        <div className="mb-8">
-                          <h4 className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-4">{language === 'en' ? 'Implementation Procedure' : 'Utaratibu wa Utekelezaji'}</h4>
-                          <div className="space-y-4">
-                            {solution.steps.map((step, idx) => (
-                              <div key={idx} className="flex gap-4 group">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-mono text-zinc-400 border border-zinc-700 group-hover:bg-emerald-900/30 group-hover:border-emerald-500/50 transition-all shadow-sm">
-                                  {String(idx + 1).padStart(2, '0')}
-                                </div>
-                                <div className="flex-1 bg-zinc-950/40 p-4 rounded-xl border border-zinc-800 font-mono text-sm text-zinc-300 group-hover:border-zinc-700 transition-colors">
-                                  {step}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                        <div className="flex items-center justify-between mt-4">
+                           <div className="flex items-center gap-2">
+                              <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                className="hidden" 
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-800 text-slate-400 text-xs hover:bg-slate-700 hover:text-slate-200 transition-colors border border-slate-700"
+                              >
+                                <ImageIcon size={14} />
+                                {language === 'en' ? 'Attach Media' : 'Ambatanisha Picha'}
+                              </button>
+                           </div>
 
-                      {/* BOM Section */}
-                      <div className="mb-8">
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-2">
-                            <ShoppingCart size={14} className="text-emerald-500" />
-                            {language === 'en' ? 'Bill of Materials (Procurement)' : 'Orodha ya Nyenzo (Ununuzi)'}
-                          </h4>
-                          {!solution.billOfMaterials && (
-                            <button
-                              onClick={handleGenerateBOM}
-                              disabled={isGeneratingBOM}
-                              className="flex items-center gap-2 px-4 py-1.5 rounded-xl bg-emerald-600/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase hover:bg-emerald-600/20 transition-all disabled:opacity-50"
+                           <button
+                              type="submit"
+                              disabled={isSolving || !query.trim()}
+                              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 py-2 rounded-md text-sm font-medium shadow-sm transition-all"
                             >
-                              {isGeneratingBOM ? (
+                              {isSolving ? (
                                 <>
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                  {language === 'en' ? 'Extracting...' : 'Inasoma...'}
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  {language === 'en' ? 'Analyzing...' : 'Inachakata...'}
                                 </>
                               ) : (
                                 <>
-                                  <PackagePlus size={14} />
-                                  {language === 'en' ? 'Generate BOM' : 'Tengeneza Orodha'}
+                                  {language === 'en' ? 'Run Diagnostics' : 'Anzisha Utambuzi'}
+                                  <ArrowRight className="w-4 h-4" />
                                 </>
                               )}
                             </button>
-                          )}
                         </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-                        {solution.billOfMaterials && solution.billOfMaterials.length > 0 ? (
-                          <div className="overflow-x-auto rounded-2xl border border-zinc-800 bg-zinc-950/60 shadow-inner animate-in fade-in slide-in-from-top-4 duration-500">
-                            <table className="w-full text-left text-xs font-mono">
-                              <thead>
-                                <tr className="border-b border-zinc-800 bg-zinc-900/50">
-                                  <th className="p-4 text-emerald-500 uppercase tracking-tighter">{language === 'en' ? 'Item' : 'Bidhaa'}</th>
-                                  <th className="p-4 text-emerald-500 uppercase tracking-tighter">{language === 'en' ? 'Specification' : 'Maelezo'}</th>
-                                  <th className="p-4 text-emerald-500 uppercase tracking-tighter">{language === 'en' ? 'Qty' : 'Kiasi'}</th>
-                                  <th className="p-4 text-emerald-500 uppercase tracking-tighter">{language === 'en' ? 'Priority' : 'Kipaumbele'}</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-zinc-800">
-                                {solution.billOfMaterials.map((item, i) => (
-                                  <tr key={i} className="hover:bg-emerald-500/5 transition-colors">
-                                    <td className="p-4 text-zinc-200 font-bold">{item.itemName}</td>
-                                    <td className="p-4 text-zinc-400 italic">{item.specification}</td>
-                                    <td className="p-4 text-emerald-400 font-bold">{item.quantity}</td>
-                                    <td className="p-4">
-                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                                        item.priority === 'High' ? 'bg-red-500/20 text-red-500 border border-red-500/30' :
-                                        item.priority === 'Medium' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30' :
-                                        'bg-zinc-500/20 text-zinc-400 border border-zinc-500/30'
-                                      }`}>
-                                        {item.priority}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          !isGeneratingBOM && (
-                            <div className="p-8 text-center bg-zinc-950/40 rounded-2xl border border-zinc-800 border-dashed">
-                              <p className="text-zinc-500 text-[10px] font-mono uppercase tracking-widest">
-                                {language === 'en' ? 'No procurement list found. Generate to view items.' : 'Hakuna orodha ya ununuzi. Tengeneza ili kuona bidhaa.'}
-                              </p>
-                            </div>
-                          )
-                        )}
+              {/* Error Banner */}
+              {error && (
+                <div className="bg-red-500/10 border-l-4 border-red-500 p-4 rounded-r-md flex items-center gap-3 text-red-400">
+                  <AlertTriangle className="w-5 h-5" />
+                  <span className="text-sm font-medium">{error}</span>
+                </div>
+              )}
+
+              {/* Solution View */}
+              {solution && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-4 duration-500">
+                  
+                  {/* Left Column: Analysis & Steps */}
+                  <div className="lg:col-span-2 space-y-6">
+                    
+                    {/* Safety Banner - Only if Critical */}
+                    {isSafetyCritical(solution.safetyCheck) && (
+                      <div className="bg-amber-950/40 border border-amber-500/30 rounded-lg overflow-hidden">
+                        <div className="bg-amber-600/20 px-4 py-2 border-b border-amber-500/30 flex items-center gap-2">
+                           <ShieldAlert className="w-4 h-4 text-amber-500" />
+                           <h3 className="text-xs font-bold text-amber-500 uppercase tracking-wider">
+                             {language === 'en' ? 'Mandatory Safety Protocols' : 'Itifaki za Usalama'}
+                           </h3>
+                        </div>
+                        <div className="p-4">
+                           <p className="text-sm text-amber-100/90 leading-relaxed font-medium">
+                             {solution.safetyCheck}
+                           </p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Main Technical Report Card */}
+                    <div className="glass-panel rounded-xl overflow-hidden">
+                      <div className="border-b border-slate-800 bg-slate-900/50 px-6 py-4 flex items-center justify-between">
+                         <div className="flex items-center gap-3">
+                           <Activity className="w-5 h-5 text-emerald-500" />
+                           <h2 className="text-base font-semibold text-slate-100">
+                             {language === 'en' ? 'Technical Assessment' : 'Tathmini ya Kiufundi'}
+                           </h2>
+                         </div>
+                         <div className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded text-[10px] font-mono font-bold text-emerald-400">
+                           CONFIDENCE: {(solution.confidence * 100).toFixed(0)}%
+                         </div>
                       </div>
 
-                      <div className="bg-emerald-600/10 border border-emerald-500/30 rounded-2xl p-6 shadow-[inset_0_0_20px_rgba(16,185,129,0.05)] border-l-4">
-                        <h4 className="text-emerald-400 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">{language === 'en' ? 'Technical Verdict' : 'Uamuzi wa Kiufundi'}</h4>
-                        <p className="text-xl font-bold text-white font-mono leading-tight tracking-tighter">
+                      <div className="p-6 space-y-8">
+                        
+                        {/* Summary */}
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Analysis</h4>
+                          <p className="text-slate-300 text-sm leading-6 border-l-2 border-slate-700 pl-4">
+                            {solution.analysis}
+                          </p>
+                        </div>
+
+                        {/* Diagnostic Tree */}
+                        {solution.diagnosticTree && solution.diagnosticTree.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                               <Stethoscope size={12} /> Diagnostic Logic
+                            </h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                               {solution.diagnosticTree.map((node, i) => (
+                                 <div key={i} className="bg-slate-900/50 border border-slate-800 p-3 rounded-lg">
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Hypothesis</div>
+                                    <div className="text-xs text-slate-300 mb-2">{node.hypothesis}</div>
+                                    <div className="text-[10px] text-emerald-500 font-bold uppercase mb-1">Verification</div>
+                                    <div className="text-xs text-slate-300">{node.test}</div>
+                                 </div>
+                               ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Plan */}
+                        {solution.steps.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Remediation Steps</h4>
+                            <div className="space-y-0">
+                               {solution.steps.map((step, idx) => (
+                                 <div key={idx} className="flex gap-4 p-3 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 transition-colors rounded-lg">
+                                    <div className="font-mono text-slate-500 text-xs font-bold pt-0.5">
+                                      {String(idx + 1).padStart(2, '0')}
+                                    </div>
+                                    <div className="text-sm text-slate-300">
+                                      {step}
+                                    </div>
+                                 </div>
+                               ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* BOM Section */}
+                        <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Bill of Materials</h4>
+                              {!solution.billOfMaterials && (
+                                <button
+                                  onClick={handleGenerateBOM}
+                                  disabled={isGeneratingBOM}
+                                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium flex items-center gap-1 disabled:opacity-50"
+                                >
+                                  {isGeneratingBOM ? <Loader2 size={12} className="animate-spin"/> : <PackagePlus size={12} />}
+                                  {language === 'en' ? 'Generate List' : 'Tengeneza Orodha'}
+                                </button>
+                              )}
+                            </div>
+
+                            {solution.billOfMaterials && solution.billOfMaterials.length > 0 ? (
+                              <div className="border border-slate-800 rounded-lg overflow-hidden bg-slate-900/50">
+                                <table className="w-full text-left text-xs">
+                                  <thead>
+                                    <tr className="bg-slate-950 border-b border-slate-800 text-slate-500 font-semibold uppercase">
+                                      <th className="p-3 pl-4">Item</th>
+                                      <th className="p-3">Spec</th>
+                                      <th className="p-3">Qty</th>
+                                      <th className="p-3">Priority</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-slate-800/50">
+                                    {solution.billOfMaterials.map((item, i) => (
+                                      <tr key={i} className="hover:bg-slate-800/50 transition-colors">
+                                        <td className="p-3 pl-4 font-medium text-slate-200">{item.itemName}</td>
+                                        <td className="p-3 text-slate-400 font-mono text-[10px]">{item.specification}</td>
+                                        <td className="p-3 text-slate-300 font-mono">{item.quantity}</td>
+                                        <td className="p-3">
+                                          <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
+                                            item.priority === 'High' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                            item.priority === 'Medium' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                            'bg-slate-700/30 text-slate-400 border-slate-600/30'
+                                          }`}>
+                                            {item.priority}
+                                          </span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              </div>
+                            ) : (
+                                !isGeneratingBOM && <div className="p-4 bg-slate-900/30 border border-slate-800 border-dashed rounded text-center text-xs text-slate-500">No BOM generated yet.</div>
+                            )}
+                        </div>
+
+                      </div>
+                    </div>
+
+                    {/* Verdict Card */}
+                    <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-6">
+                        <h4 className="text-xs font-bold text-emerald-500 uppercase tracking-wider mb-2">
+                           {language === 'en' ? 'Final Determination' : 'Uamuzi wa Mwisho'}
+                        </h4>
+                        <p className="text-lg font-medium text-emerald-100">
                           {solution.finalResult}
                         </p>
-                      </div>
                     </div>
+
                   </div>
 
-                  {/* Follow-up Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-6 backdrop-blur-sm">
-                      <h3 className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <Calendar size={14} />
-                        {language === 'en' ? '24-Hour Checklist' : 'Orodha ya Masaa 24'}
-                      </h3>
-                      <ul className="space-y-3">
-                        {solution.followUp24h?.map((item, i) => (
-                          <li key={i} className="flex items-start gap-3 p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 text-xs text-zinc-300 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-6 backdrop-blur-sm">
-                      <h3 className="text-emerald-400 text-[10px] font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <History size={14} />
-                        {language === 'en' ? '7-Day Verification' : 'Uhakiki wa Siku 7'}
-                      </h3>
-                      <ul className="space-y-3">
-                        {solution.followUp7d?.map((item, i) => (
-                          <li key={i} className="flex items-start gap-3 p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 text-xs text-zinc-300 font-mono">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                            {item}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sidebar Project Controls */}
-                <div className="space-y-6">
-                  {/* Scope & Budget Section */}
-                  <div className="bg-zinc-900/60 border border-emerald-500/20 rounded-3xl p-6 backdrop-blur-sm shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-3 opacity-10">
-                      <ClipboardCheck size={40} className="text-emerald-500" />
-                    </div>
-                    <h3 className="text-emerald-500 text-[10px] font-bold uppercase tracking-widest mb-6 border-b border-zinc-800 pb-2">
-                      {language === 'en' ? 'Project Controls' : 'Udhibiti wa Mradi'}
-                    </h3>
+                  {/* Right Column: Project Data */}
+                  <div className="space-y-6">
                     
-                    <div className="space-y-6">
-                      <div>
-                        <div className="flex items-center gap-2 text-zinc-400 mb-2">
-                          <Maximize2 size={14} />
-                          <span className="text-[10px] uppercase font-bold tracking-tighter">{language === 'en' ? 'Scope Verification' : 'Uhakiki wa Upeo'}</span>
-                        </div>
-                        <p className="text-xs text-zinc-300 font-mono bg-zinc-950/60 p-3 rounded-xl border border-zinc-800 italic">
-                          {solution.projectScopeConfirm || (language === 'en' ? "Verify against WO before proceeding." : "Hakiki dhidi ya WO kabla ya kuendelea.")}
-                        </p>
+                    {/* Project Controls Card */}
+                    <div className="glass-panel rounded-xl p-5 space-y-6">
+                      <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                        <ClipboardCheck className="w-4 h-4 text-slate-400" />
+                        <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wide">Project Controls</h3>
                       </div>
 
-                      <div>
-                        <div className="flex items-center gap-2 text-zinc-400 mb-2">
-                          <Clock size={14} />
-                          <span className="text-[10px] uppercase font-bold tracking-tighter">{language === 'en' ? 'Budget Estimate (Time)' : 'Makadirio ya Bajeti (Muda)'}</span>
+                      <div className="space-y-4">
+                        <div className="bg-slate-900/50 rounded p-3 border border-slate-800">
+                          <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Scope Check</span>
+                          <p className="text-xs text-slate-300 leading-tight">
+                            {solution.projectScopeConfirm || "Pending verification."}
+                          </p>
                         </div>
-                        <p className="text-lg font-bold text-emerald-400 font-mono px-3">
-                          {solution.timeToComplete || (language === 'en' ? "Calculating..." : "Inakokotoa...")}
-                        </p>
+
+                        <div className="grid grid-cols-2 gap-3">
+                           <div className="bg-slate-900/50 rounded p-3 border border-slate-800">
+                             <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1 flex items-center gap-1"><Clock size={10}/> Est. Time</span>
+                             <span className="text-sm font-mono text-emerald-400 font-medium">
+                               {solution.timeToComplete || "--"}
+                             </span>
+                           </div>
+                           <div className="bg-slate-900/50 rounded p-3 border border-slate-800">
+                             <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Steps</span>
+                             <span className="text-sm font-mono text-slate-300 font-medium">
+                               {solution.steps.length}
+                             </span>
+                           </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Parameter Register */}
-                  {Object.keys(solution.variables).length > 0 && (
-                    <div className="bg-zinc-900/60 border border-zinc-800 rounded-3xl p-6 backdrop-blur-sm">
-                      <h3 className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest mb-6 flex items-center gap-2">
-                        <Binary size={14} className="text-emerald-500" />
-                        {language === 'en' ? 'Asset Register' : 'Sajili ya Rasilimali'}
-                      </h3>
-                      <div className="space-y-3">
-                        {Object.entries(solution.variables).map(([key, val]) => (
-                          <div key={key} className="flex flex-col gap-1 p-3 rounded-xl bg-zinc-950/60 border border-zinc-800 hover:border-emerald-500/30 transition-all shadow-sm">
-                            <span className="text-emerald-400 font-mono text-[10px] font-bold uppercase tracking-tighter">{key}</span>
-                            <span className="text-zinc-300 text-xs font-mono">{val}</span>
+                    {/* Chart */}
+                    <AnalysisChart 
+                      title={language === 'en' ? "Resource Impact" : "Athari za Rasilimali"}
+                      data={[
+                        { name: 'Fix', value: 45 },
+                        { name: 'Test', value: 20 },
+                        { name: 'Doc', value: 35 },
+                      ]} 
+                    />
+
+                    {/* Asset Data */}
+                    {Object.keys(solution.variables).length > 0 && (
+                      <div className="glass-panel rounded-xl p-5">
+                         <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-4">
+                            <Binary className="w-4 h-4 text-slate-400" />
+                            <h3 className="text-xs font-bold text-slate-100 uppercase tracking-wide">Detected Assets</h3>
                           </div>
-                        ))}
+                          <div className="space-y-2">
+                            {Object.entries(solution.variables).map(([key, val]) => (
+                              <div key={key} className="flex justify-between items-center text-xs border-b border-slate-800/50 pb-2 last:border-0">
+                                 <span className="text-slate-500 font-mono">{key}</span>
+                                 <span className="text-slate-300 font-medium text-right">{val}</span>
+                              </div>
+                            ))}
+                          </div>
                       </div>
+                    )}
+
+                    {/* Checklists */}
+                    <div className="glass-panel rounded-xl p-5 space-y-6">
+                        <div>
+                          <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">24h Follow-up</h4>
+                          <ul className="space-y-2">
+                             {solution.followUp24h?.map((item, i) => (
+                               <li key={i} className="flex gap-2 text-xs text-slate-400">
+                                 <span className="w-1 h-1 bg-emerald-500 rounded-full mt-1.5 shrink-0" />
+                                 {item}
+                               </li>
+                             ))}
+                          </ul>
+                        </div>
+                        <div>
+                          <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">7-Day Verification</h4>
+                          <ul className="space-y-2">
+                             {solution.followUp7d?.map((item, i) => (
+                               <li key={i} className="flex gap-2 text-xs text-slate-400">
+                                 <span className="w-1 h-1 bg-slate-500 rounded-full mt-1.5 shrink-0" />
+                                 {item}
+                               </li>
+                             ))}
+                          </ul>
+                        </div>
                     </div>
-                  )}
 
-                  <AnalysisChart 
-                    title={language === 'en' ? "Estimated Downtime Impact" : "Kadirio la Athari za Muda wa Kupungua"}
-                    data={[
-                      { name: language === 'en' ? 'Repair' : 'Matengenezo', value: 45 },
-                      { name: language === 'en' ? 'Verify' : 'Hakiki', value: 20 },
-                      { name: language === 'en' ? 'Return' : 'Rejea', value: 35 },
-                    ]} 
-                  />
-
-                  {/* Action Bar */}
-                  <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-4 flex justify-around shadow-lg">
-                     <button className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400 hover:text-emerald-400 transition-all flex flex-col items-center gap-2 group">
-                        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 group-hover:border-emerald-500/50 transition-colors">
-                          <ChevronRight className="rotate-90" />
-                        </div>
-                        WO PDF
-                     </button>
-                     <button className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400 hover:text-emerald-400 transition-all flex flex-col items-center gap-2 group">
-                        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 group-hover:border-emerald-500/50 transition-colors">
-                          <Binary size={18} />
-                        </div>
-                        SCADA
-                     </button>
-                     <button className="text-[10px] font-bold uppercase tracking-tighter text-zinc-400 hover:text-emerald-400 transition-all flex flex-col items-center gap-2 group">
-                        <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center border border-zinc-700 group-hover:border-emerald-500/50 transition-colors">
-                          <Cpu size={18} />
-                        </div>
-                        ERP
-                     </button>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="max-w-4xl mx-auto space-y-6 pb-12">
-            <h2 className="text-2xl font-bold text-white mb-8 font-mono tracking-tighter uppercase italic border-b border-zinc-800 pb-4">
-              {language === 'en' ? 'Ops History Log' : 'Rekodi ya Historia ya Operesheni'}
-            </h2>
-            {history.length === 0 ? (
-              <div className="text-center py-20 bg-zinc-900/40 border border-dashed border-zinc-800 rounded-3xl">
-                <History className="w-12 h-12 text-zinc-700 mx-auto mb-4" />
-                <p className="text-zinc-500 font-mono uppercase text-[10px] tracking-widest">{language === 'en' ? 'Registry Clear // No logged interventions' : 'Daftari Safi // Hakuna uingiliaji uliorekodiwa'}</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {history.map((item) => (
-                  <div key={item.id} className="bg-zinc-900/60 border border-zinc-800 rounded-2xl p-6 hover:border-emerald-500/50 transition-all cursor-pointer group shadow-sm backdrop-blur-sm">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="px-2 py-0.5 rounded-md bg-emerald-900/20 text-emerald-400 text-[10px] font-mono font-bold border border-emerald-500/20">
-                            {item.field}
-                          </span>
-                          <span className="text-[10px] text-zinc-500 font-mono uppercase tracking-tighter">
-                            WO ID: {item.id.slice(-6)} // {new Date(item.timestamp).toLocaleString()}
-                          </span>
-                        </div>
-                        <h3 className="text-zinc-100 font-medium line-clamp-2 mb-3 font-mono text-sm leading-relaxed group-hover:text-emerald-400 transition-colors">
-                          {item.query}
-                        </h3>
-                        <div className="flex items-center gap-4 text-xs text-zinc-500">
-                          {item.timeToComplete && (
-                            <div className="flex items-center gap-1.5 text-emerald-500 font-bold uppercase text-[9px] font-mono">
-                              <Clock size={10} />
-                              {item.timeToComplete} Est.
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1.5 group-hover:text-emerald-500 transition-colors text-[10px] font-mono">
-                            <CheckCircle2 size={10} />
-                            {item.steps.length} {language === 'en' ? 'Task Steps' : 'Hatua za Kazi'}
+              )}
+            </div>
+          ) : (
+            // History View
+            <div className="max-w-4xl mx-auto pb-12">
+               <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-xl font-semibold text-white">Operational History</h2>
+                  <span className="text-xs text-slate-500">{history.length} records found</span>
+               </div>
+               
+               {history.length === 0 ? (
+                 <div className="text-center py-20 bg-slate-900/30 border border-dashed border-slate-800 rounded-xl">
+                   <History className="w-10 h-10 text-slate-600 mx-auto mb-3" />
+                   <p className="text-slate-500 text-sm">No intervention logs available.</p>
+                 </div>
+               ) : (
+                 <div className="space-y-3">
+                   {history.map((item) => (
+                     <div key={item.id} className="bg-slate-900/50 border border-slate-800 rounded-lg p-5 hover:border-emerald-500/30 transition-all cursor-pointer group"
+                          onClick={() => {
+                            setSolution(item);
+                            setSelectedField(item.field);
+                            setQuery(item.query);
+                            setImagePreview(item.image || null);
+                            setActiveTab('solver');
+                          }}
+                     >
+                       <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center gap-2">
+                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 uppercase">{item.field}</span>
+                             <span className="text-[10px] text-slate-500 font-mono">ID: {item.id.slice(-8)}</span>
                           </div>
-                          {isSafetyCritical(item.safetyCheck) && (
-                            <div className="flex items-center gap-1.5 text-red-500 font-bold uppercase text-[9px]">
-                              <ShieldAlert size={10} />
-                              {language === 'en' ? 'Safety Critical' : 'Muhimu kwa Usalama'}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <button 
-                        onClick={() => {
-                          setSolution(item);
-                          setSelectedField(item.field);
-                          setQuery(item.query);
-                          setImagePreview(item.image || null);
-                          setActiveTab('solver');
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 bg-zinc-800 rounded-lg text-zinc-400 hover:text-emerald-400 shadow-sm border border-zinc-700"
-                      >
-                        <ChevronRight />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </main>
-
-      {/* Footer Branding */}
-      <footer className="px-8 py-3 bg-zinc-950 border-t border-zinc-800 text-[10px] font-mono flex items-center justify-between text-zinc-600 uppercase tracking-widest">
-        <span>© 2024 Burhani Power Engineers Ltd. // Operations Controller v5.0</span>
-        <div className="flex gap-6">
-          <span className="text-emerald-700 font-bold tracking-tighter">Ops Sync: Active</span>
-          <span className="hidden sm:inline">Resource Optimization: Enabled</span>
-          <span className="text-zinc-400 font-bold">WO-9912-CORE</span>
+                          <span className="text-[10px] text-slate-500">{new Date(item.timestamp).toLocaleDateString()}</span>
+                       </div>
+                       <h3 className="text-slate-200 font-medium text-sm mb-3 line-clamp-1">{item.query}</h3>
+                       <div className="flex items-center gap-4 text-xs text-slate-500">
+                          <span className="flex items-center gap-1"><Clock size={12}/> {item.timeToComplete || 'N/A'}</span>
+                          {isSafetyCritical(item.safetyCheck) && <span className="flex items-center gap-1 text-amber-500"><ShieldAlert size={12}/> Risk Identified</span>}
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               )}
+            </div>
+          )}
         </div>
-      </footer>
+      </main>
     </div>
   );
 };
